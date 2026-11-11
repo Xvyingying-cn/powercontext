@@ -300,6 +300,7 @@ if TYPE_CHECKING:
 
     from powercontext.builtin.handoff_report.application import HandoffReportApplication
     from powercontext.builtin.runtime.artifact_processing import ArtifactProcessingSupervisors
+    from powercontext.builtin.runtime.source_lifecycle import SourceLifecycleApplication
 
 
 class TopicMemorySearch(Protocol):
@@ -2698,6 +2699,13 @@ class ScopedTopicMemoryApplication:
                         "unit": "topic-memory",
                     },
                 )
+        lifecycle = self._runtime.lifecycle
+        if lifecycle is not None:
+            hidden = await lifecycle.hidden_topic_artifact_ids(self.scope_id)
+            if hidden:
+                result = result.model_copy(
+                    update={"hits": tuple(hit for hit in result.hits if hit.artifact_ref.artifact_id not in hidden)}
+                )
         return result
 
     async def _search_with_embedding(
@@ -3126,6 +3134,8 @@ class BuiltinRuntime:
         self.memory = MemoryApplication(self)
         self.topic_memory = TopicMemoryApplication(self)
         self.records = RecordApplication(self)
+        # Assigned by composition once the runtime and its database exist.
+        self.lifecycle: SourceLifecycleApplication | None = None
         self.prompts = PromptApplication(self)
         self.review = ReviewApplication(self)
         self.skill = SkillApplication(self)
