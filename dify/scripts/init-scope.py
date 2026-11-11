@@ -8,7 +8,7 @@
     python init-scope.py --url http://host:8000 --token xxx
 
 依赖：仅 Python 3.8+ 标准库。返回的 SCOPE_ID 需要填入 Dify 应用的
-环境变量 pc_scope_id（见 README.md 第 4 节）。
+环境变量 PC_SCOPE_ID（见 README.md 第 4 节）。
 """
 from __future__ import annotations
 
@@ -91,7 +91,7 @@ def main() -> int:
     else:
         print("[3/3] 跳过预置记忆（未加 --seed）")
 
-    print("\n✅ 完成。把下面的值填入 Dify 应用环境变量 pc_scope_id：")
+    print("\n✅ 完成。把下面的值填入 Dify 应用环境变量 PC_SCOPE_ID：")
     print(f"SCOPE_ID={scope_id}")
     return 0
 
