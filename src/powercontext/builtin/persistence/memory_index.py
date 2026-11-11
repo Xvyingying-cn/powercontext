@@ -247,6 +247,15 @@ class CompositeMemoryIndex:
         request: MemorySearchRequest,
         /,
     ) -> MemorySearchChannels:
+        if request.mode == "hybrid":
+            # A backend that exposes a native single-statement hybrid search
+            # replaces the per-index candidate queries for this mode only.
+            fts_index = next((index for index in self.indexes if hasattr(index, "search_hybrid_single_statement")), None)
+            vector_index = next((index for index in self.indexes if index.capabilities.vector), None)
+            if fts_index is not None and vector_index is not None:
+                return await fts_index.search_hybrid_single_statement(
+                    connection, scope_id, request, vector_index
+                )
         fts: tuple[MemoryChannelHit, ...] = ()
         vector: tuple[MemoryChannelHit, ...] = ()
         for index in self.indexes:
