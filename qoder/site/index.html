@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>复习教练 StudyCoach — 越用越懂你的复习伙伴</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">📚</span>
+    <div>
+      <h1>复习教练 StudyCoach</h1>
+      <p class="subtitle">把薄弱点存进 PowerContext 长期记忆，越用越懂你</p>
+    </div>
+  </div>
+  <div class="conn-badge" id="connBadge">
+    <span class="dot" id="connDot"></span>
+    <span id="connText">未连接 · 演示模式</span>
+    <button class="btn btn-ghost" id="btnSettings">⚙ 设置</button>
+  </div>
+</header>
+
+<main>
+  <!-- 设置面板 -->
+  <section class="panel hidden" id="settingsPanel">
+    <h2>连接 PowerContext</h2>
+    <p class="hint">在本地运行 <code>python scripts/adapter.py</code>（默认 <code>http://127.0.0.1:8787</code>）后填入适配器地址。
+      留空则使用内置演示数据。配置保存在浏览器本地。</p>
+    <div class="form-grid">
+      <label>适配器地址（API Base）
+        <input type="text" id="cfgBase" placeholder="http://127.0.0.1:8787">
+      </label>
+      <label>Bearer Token（与 PowerContext 服务一致，可留空）
+        <input type="text" id="cfgToken" placeholder="本地开发默认可留空">
+      </label>
+      <label>Scope ID（记忆空间标识）
+        <input type="text" id="cfgScope" placeholder="study-coach-demo">
+      </label>
+    </div>
+    <div class="row">
+      <button class="btn btn-primary" id="btnSaveCfg">保存并测试连接</button>
+      <button class="btn btn-ghost" id="btnDemoMode">切回演示模式</button>
+      <span id="cfgMsg" class="msg"></span>
+    </div>
+  </section>
+
+  <div class="columns">
+    <!-- 左：记录 -->
+    <section class="panel">
+      <h2>① 今日学习打卡</h2>
+      <p class="hint">记录学了什么、哪些点没把握。薄弱点会写入 PowerContext 记忆（<code>/v1/memory/remember</code>）。</p>
+      <label class="field">学科 / 主题
+        <input type="text" id="inSubject" placeholder="例如：高等数学 · 第三章 中值定理">
+      </label>
+      <label class="field">掌握了的内容
+        <textarea id="inLearned" rows="3" placeholder="例如：看完罗尔定理推导，会做课本例题 3-5"></textarea>
+      </label>
+      <label class="field">没把握的薄弱点（每行一个）
+        <textarea id="inWeak" rows="4" placeholder="例如：&#10;拉格朗日中值定理的构造辅助函数思路&#10;柯西定理与拉格朗日的关系记不清"></textarea>
+      </label>
+      <button class="btn btn-primary" id="btnRecord">保存到记忆</button>
+      <div class="logbox" id="recordLog"></div>
+    </section>
+
+    <!-- 右：复习 -->
+    <section class="panel">
+      <h2>② 开始复习</h2>
+      <p class="hint">输入本次复习主题，StudyCoach 用 <code>/v1/context/prepare</code> 从长期记忆召回你的历史薄弱点，生成个性化复习清单。</p>
+      <div class="row">
+        <input type="text" id="inQuery" class="grow" placeholder="例如：复习中值定理，下周考试">
+        <button class="btn btn-primary" id="btnReview">生成复习清单</button>
+      </div>
+      <div id="reviewResult" class="review-result empty">还没有生成过复习清单。</div>
+      <h3>记忆库一览 <button class="btn btn-ghost btn-sm" id="btnRefresh">刷新</button></h3>
+      <div id="memoryList" class="memory-list empty">暂无记忆条目。</div>
+    </section>
+  </div>
+
+  <section class="panel tech">
+    <h2>技术说明</h2>
+    <ul>
+      <li><b>PowerContext 长期记忆</b>：薄弱点通过 <code>POST /v1/memory/remember</code> 写入 Scope 记忆库；复习时通过 <code>POST /v1/context/prepare</code> 语义召回，跨会话复用——关掉网页明天再来，教练依然记得你哪里没学会。</li>
+      <li><b>本地适配器</b>：<code>scripts/adapter.py</code> 为浏览器提供带 CORS 的转发层，把请求转发到自部署的 PowerContext 服务（默认 <code>http://127.0.0.1:8000</code>）。</li>
+      <li><b>演示模式</b>：未连接服务时使用内置示例数据走通全部交互流程，便于快速了解产品形态。</li>
+      <li><b>开发方式</b>：本项目由 Qoder 智能体平台完成主要开发，并通过 Qoder Sites 发布，开发记录见仓库 <code>QODER_RECORD.md</code>。</li>
+    </ul>
+  </section>
+</main>
+
+<footer>StudyCoach · Build with Qoder × OceanBase PowerContext · 2026 OceanBase 大赛参赛作品</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
