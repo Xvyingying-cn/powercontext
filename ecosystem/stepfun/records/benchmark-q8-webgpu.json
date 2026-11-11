@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-11-11T14:19:37.015Z",
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+    "webgpuAvailable": true,
+    "hardwareConcurrency": 32
+  },
+  "config": {
+    "model": "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
+    "dtype": "q8",
+    "backend": "webgpu",
+    "batchSize": 8,
+    "chunks": 8,
+    "docs": 8,
+    "modelSizeMB": 112.8
+  },
+  "timingsMs": {
+    "modelLoad": 3303.3,
+    "warmup": 1202.4,
+    "embedDocs": 1771.3,
+    "writeSeekdb": 319.7,
+    "indexRefresh": 14.8,
+    "embedQuery": 224,
+    "seekdbSearch": 107.1,
+    "endToEnd": 343.5
+  },
+  "quality": {
+    "queries": 8,
+    "recall5": 0.6875,
+    "ndcg5": 0.5077,
+    "avgSearchMs": 18,
+    "dtype": "q8",
+    "backend": "webgpu"
+  }
+}
