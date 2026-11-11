@@ -172,6 +172,7 @@ from powercontext.builtin.runtime.models import (
     SubmitSourceObservation,
     TopicMemoryFlushResult,
 )
+from powercontext.builtin.runtime.prepared_context import PreparedContextFragment
 from powercontext.builtin.runtime.protocols import PowerContextProvider, RemoteIngestion
 from powercontext.builtin.runtime.readiness import (
     CachedReadinessProbe,
@@ -318,6 +319,7 @@ __all__ = [
     "PrepareContextRequest",
     "PrepareHandoff",
     "PreparedContext",
+    "PreparedContextFragment",
     "PreparedHandoff",
     "ProposeExperienceRequest",
     "ProposeSkillRequest",
