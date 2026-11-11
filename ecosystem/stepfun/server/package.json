@@ -1,0 +1,16 @@
+{
+  "name": "seekdb-mini-kb-server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Embedded seekdb bridge for the browser-side mini knowledge base (StepFun track)",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server.mjs",
+    "selftest": "node selftest.mjs"
+  },
+  "dependencies": {
+    "@oceanbase/seekdb-node": "^1.4.0",
+    "mysql2": "^3.11.5"
+  }
+}
