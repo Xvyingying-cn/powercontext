@@ -195,7 +195,7 @@ PDF_PAGE_SOURCE_DEFINITION = AdapterSourceDefinition(
 )
 
 
-_TERM_PATTERN = re.compile(r"[a-z]+|\d+")
+_TERM_PATTERN = re.compile(r"[a-z0-9]+", re.IGNORECASE)
 
 _QUERY_STOP_TERMS = frozenset(
     """
@@ -205,6 +205,7 @@ _QUERY_STOP_TERMS = frozenset(
     not no nor if then than so such can could should would may might must will shall
     also more most less least very much many any all both each other same only just
     about above after again against between during into over under out up down
+    please
     usd million millions billion billions thousand thousands
     fiscal fy year years quarter quarters period periods
     respond response answer answered assuming assume assumed perspective analyst analysts
@@ -224,6 +225,18 @@ _SYNONYMS = {
     "capex": ("capital", "spending"),
     "geographies": ("geographic", "regions", "operations"),
     "operates": ("operations", "operating"),
+    "cyclicality": ("cyclical", "seasonality", "seasonal"),
+    "customers": ("customer", "clients", "airlines", "government"),
+    "customer": ("customers", "clients"),
+    "clients": ("customer", "customers"),
+    "primary": ("major", "main", "largest"),
+    "revenue": ("sales",),
+    "sales": ("revenue",),
+    "capital": ("property", "depreciation", "expenditures"),
+    "forecasting": ("expected", "expect", "outlook"),
+    "forecast": ("expected", "expect", "outlook"),
+    "liquidity": ("liquid",),
+    "concentration": ("concentrated",),
 }
 
 _ABBREVIATIONS = (
@@ -232,9 +245,22 @@ _ABBREVIATIONS = (
     (re.compile(r"p\s*&\s*l", re.IGNORECASE), " income "),
 )
 
-_TITLE_INCOME = "consolidated statement of income"
-_TITLE_CASH = "consolidated statement of cash flows"
-_TITLE_BALANCE = "consolidated balance sheet"
+_TITLE_INCOME = (
+    re.compile(r"statements? of (income|operations)"),
+    "consolidated statement statements of income operations",
+)
+_TITLE_CASH = (
+    re.compile(r"statements? of cash flows?"),
+    "consolidated statement statements of cash flows flow",
+)
+_TITLE_BALANCE = (
+    re.compile(r"consolidated balance sheets?"),
+    "consolidated balance sheet sheets",
+)
+_TITLE_SEGMENT = (
+    re.compile(r"summary of business segment data|by business segment"),
+    "summary of business segment data segments",
+)
 
 
 def _prepare_question(question: str) -> str:
@@ -262,30 +288,48 @@ def _question_terms(question: str) -> tuple[dict[str, float], dict[str, float]]:
     base: dict[str, float] = {}
     synonyms: dict[str, float] = {}
     for segment, weight in ((head, 2.0), (tail, 1.0)):
-        for term in _TERM_PATTERN.findall(segment):
+        for term in _TERM_PATTERN.findall(segment.casefold()):
             if term in _QUERY_STOP_TERMS or (not term.isdigit() and len(term) < 2):
                 continue
             base[term] = max(base.get(term, 0.0), weight)
+            if term[:2] == "fy" and term[2:].isdigit():
+                base[term[2:]] = max(base.get(term[2:], 0.0), weight)
             for synonym in _SYNONYMS.get(term, ()):
                 synonyms[synonym] = max(synonyms.get(synonym, 0.0), weight)
     return base, synonyms
 
 
-def _required_titles(question: str) -> tuple[str, ...]:
-    """Return the statement titles a question explicitly asks about."""
+def _required_titles(question: str) -> tuple[tuple[re.Pattern[str], str], ...]:
+    """Return ``(title pattern, title query)`` pairs a question asks about."""
 
     prepared = _prepare_question(question).casefold()
     titles = []
-    if re.search(r"income statements?|statement of income", prepared):
-        titles.append(_TITLE_INCOME)
-    if "cash flow" in prepared:
-        titles.append(_TITLE_CASH)
-    if "balance sheet" in prepared:
-        titles.append(_TITLE_BALANCE)
+    statements = []
+    if re.search(
+        r"income statements?|statements? of income|statements? of operations"
+        r"|gross margin|operating margin|margin profile|effective tax rate|tax rate"
+        r"|cogs|cost of (goods|revenue|sales)",
+        prepared,
+    ):
+        statements.append(_TITLE_INCOME)
+    if re.search(r"cash flows?|capital expenditures|capex|capital.intensive", prepared):
+        statements.append(_TITLE_CASH)
+    if re.search(
+        r"balance sheets?|quick ratio|current ratio|liquidity|capital.intensive"
+        r"|accounts payable|days payable|payable outstanding|dpo|inventory",
+        prepared,
+    ):
+        statements.append(_TITLE_BALANCE)
+    if re.search(r"segments?|categor", prepared):
+        statements.append(_TITLE_SEGMENT)
+    if re.search(r"capital.intensive", prepared):
+        statements.extend((_TITLE_INCOME, _TITLE_BALANCE, _TITLE_CASH))
+    for pattern, query in dict.fromkeys(statements):
+        titles.append((pattern, query))
     return tuple(titles)
 
 
-def _pool_queries(question: str, base, synonyms) -> tuple[str, ...]:
+def _pool_queries(question: str, base, synonyms, titles=()) -> tuple[str, ...]:
     """Return the query variants that fill the candidate pool.
 
     A single long question clears the Memory admission floor only when a page
@@ -294,7 +338,10 @@ def _pool_queries(question: str, base, synonyms) -> tuple[str, ...]:
     keeps evidence pages that the long query would filter out. Windows are
     drawn both from the question vocabulary alone and from the vocabulary
     enlarged by synonyms, and one synonym-group query lets pages that match
-    a cluster of related finance wording enter the pool together.
+    a cluster of related finance wording enter the pool together. Statement
+    titles the question names become queries of their own so that the titled
+    financial statements themselves enter the pool despite sharing no
+    question vocabulary.
     """
 
     prepared = _prepare_question(question)
@@ -308,12 +355,18 @@ def _pool_queries(question: str, base, synonyms) -> tuple[str, ...]:
             window = specific[start : start + 3]
             if len(window) == 3:
                 queries.append(" ".join(window))
+        for start in range(0, min(len(specific), 10), 2):
+            window = specific[start : start + 2]
+            if len(window) == 2:
+                queries.append(" ".join(window))
     group = sorted(
         set(synonyms) | {term for term in base if term in _SYNONYMS},
         key=lambda term: (-len(term), term),
     )
     if group:
         queries.append(" ".join(group[:10]))
+    for _pattern, title_query in titles:
+        queries.append(title_query)
     return tuple(dict.fromkeys(queries))
 
 
@@ -357,6 +410,11 @@ def _rank_pages(rows, base, synonyms, titles):
     """
 
     terms = {**base, **synonyms}
+    title_tokens: set[str] = set()
+    for _pattern, title_query in titles:
+        for token in title_query.split():
+            title_tokens.add(token)
+            terms.setdefault(token, 2.0)
     total = len(rows)
     if not total:
         return []
@@ -369,35 +427,61 @@ def _rank_pages(rows, base, synonyms, titles):
 
     scored = []
     for document_id, counts, hit, order in rows:
+        body = " ".join((hit.text or "").split()).casefold()
+        title_match = bool(titles) and any(
+            pattern.search(body) for pattern, _query in titles
+        )
+        title_header = bool(titles) and any(
+            pattern.search(body[:200]) for pattern, _query in titles
+        )
         score = 0.0
         matched = 0
+        matched_syn = 0
+        matched_title = 0
         for term, weight in terms.items():
             frequency = counts.get(term, 0)
-            if frequency:
-                score += weight * inverse(term) * (1.0 + math.log(frequency))
-                if term in base:
-                    matched += 1
-        if not matched:
+            if not frequency:
+                continue
+            contribution = weight * inverse(term) * (1.0 + math.log(frequency))
+            if term in title_tokens:
+                # Title vocabulary counts only for the pages that actually
+                # carry the statement title, so ordinary pages keep exactly
+                # their question-vocabulary ranking.
+                if not title_match:
+                    continue
+                matched_title += 1
+            elif term in base:
+                matched += 1
+            else:
+                matched_syn += 1
+            score += contribution
+        if not matched and not matched_syn and not matched_title:
             continue
         coverage = matched / max(1, len(base))
         score *= 0.8 + 0.2 * coverage
-        body = " ".join((hit.text or "").split()).casefold()
-        if titles and any(title in body for title in titles):
-            score *= 3.0
         document_terms = set(_TERM_PATTERN.findall(document_id.casefold()))
         naming = sum(1 for term in base if term in document_terms and not term.isdigit())
         if naming:
             score *= 1.0 + 0.25 * naming
-        scored.append([score, document_id, hit, order])
+        scored.append([score, document_id, hit, order, title_match, title_header])
 
     best: dict[str, float] = {}
-    for score, document_id, _hit, _order in scored:
+    for score, document_id, _hit, _order, _flag, _header in scored:
         best[document_id] = max(best.get(document_id, 0.0), score)
     leader = max(best.values())
+    # A question that names a financial statement wants the statements first:
+    # pages carrying the title keep a floor above the best ordinary page, and
+    # pages carrying the title in their header lead the titled group.
+    floor = 1.2 * max(
+        (score for score, _d, _h, _o, flag, _header in scored if not flag),
+        default=0.0,
+    )
     for row in scored:
+        if row[4]:
+            row[0] = max(row[0], floor) * (6.0 if row[5] else 3.0)
         row[0] *= 1.0 + 0.15 * (best[row[1]] / leader)
     scored.sort(key=lambda row: (-row[0], row[3]))
-    return [hit for _score, _document_id, hit, _order in scored]
+    return [hit for _score, _document_id, hit, _order, _flag, _header in scored]
 
 
 async def _first_page_citations(memory, question: str, limit: int, /) -> tuple:
@@ -437,7 +521,7 @@ async def search_pdf_pages(memory, question: str, limit: int = 10) -> tuple:
     titles = _required_titles(question)
     pool_limit = max(64, limit * 6)
     hits: dict[tuple[str, str], object] = {}
-    for query in _pool_queries(question, base, synonyms):
+    for query in _pool_queries(question, base, synonyms, titles):
         try:
             page = await memory.search(SearchMemoryRequest(query=query, limit=pool_limit, mode="fts"))
         except Exception:
