@@ -18,4 +18,4 @@ SCOPE_ID="$(curl --fail --silent --show-error \
   | python3 -c 'import json, sys; print(json.load(sys.stdin)["scope_id"])')"
 
 echo "SCOPE_ID=$SCOPE_ID"
-echo "把它填入 Dify 应用环境变量 pc_scope_id"
+echo "把它填入 Dify 应用环境变量 PC_SCOPE_ID"
