@@ -137,6 +137,12 @@ class RuntimeConfig(BaseModel):
 
     scope_cache_size: int = Field(default=DEFAULT_SCOPE_CACHE_SIZE, ge=1)
     source_window_limit: int = Field(default=100, ge=1)
+    # Count admission complements the time schedule (OR): when the number of
+    # journal entries after a processor's last successful cursor reaches the
+    # threshold, the next processing invocation starts without waiting for
+    # time. None disables the count condition entirely.
+    memory_source_count_threshold: int | None = Field(default=None, ge=1, strict=True)
+    topic_memory_source_count_threshold: int | None = Field(default=None, ge=1, strict=True)
     context_assembly_max_entries: int = Field(default=8, ge=1)
     memory_extraction_profile: MemoryExtractionProfile = MemoryExtractionProfile.CODING
     memory_rerank_enabled: bool = False
