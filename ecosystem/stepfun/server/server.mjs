@@ -132,6 +132,12 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { mode: r.mode, searchMs: +searchMs.toFixed(1), sql: r.sql, rows: r.rows });
     }
 
+    if (url.pathname === "/api/kb/explain" && req.method === "GET") {
+      const q = url.searchParams.get("query") || "混合检索是怎么工作的";
+      const kbId = url.searchParams.get("kbId") || "default";
+      return json(res, 200, await kb.explainHybrid(kbId, q));
+    }
+
     if (url.pathname === "/api/kb/refresh" && req.method === "POST") {
       const ms = await kb.refresh();
       return json(res, 200, { refreshMs: +ms.toFixed(1) });
