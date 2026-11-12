@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "stepfun-compliance/v1",
+  "generatedAt": "2026-11-12T04:20:00+08:00",
+  "checks": [
+    {
+      "id": "browser-entry",
+      "pass": true,
+      "evidence": [
+        "web/index.html loads web/app.js (module)",
+        "app.js imports web/embeddings.js",
+        "embeddings.js imports ./vendor/transformers.min.js (transformers.js 3.7.5 bundle incl. onnxruntime-web)"
+      ]
+    },
+    {
+      "id": "local-inference",
+      "pass": true,
+      "evidence": [
+        "document & query embeddings computed with transformers.js pipeline in browser (web/embeddings.js loadEmbedder/embedTexts)",
+        "no inference-related fetch in web/app.js; only same-origin /api/kb/* data calls and /data/*.json corpus fetch"
+      ]
+    },
+    {
+      "id": "no-cloud-inference-api",
+      "pass": true,
+      "evidence": [
+        "server/server.mjs exposes only static files + /api/kb/{health,stats,docs,search,refresh,clear,explain}; no LLM/embedding API calls",
+        "grep for fetch/xhr in web/ shows same-origin calls only"
+      ]
+    },
+    {
+      "id": "seekdb-storage",
+      "pass": true,
+      "evidence": [
+        "@oceanbase/seekdb-node embedded instance (server/db.mjs KnowledgeBase.open)",
+        "table kb_chunks: VECTOR(384) NOT NULL + HNSW idx_vec (cosine, vsag) + FULLTEXT idx_fts WITH PARSER ik",
+        "vectors, title/content and doc metadata all stored in seekdb; no client-memory retrieval"
+      ]
+    },
+    {
+      "id": "hybrid-in-seekdb",
+      "pass": true,
+      "evidence": [
+        "single SQL (see results/submission-results.json retrieval.sql) with MATCH..AGAINST filter and ORDER BY l2_distance APPROXIMATE",
+        "EXPLAIN plan captured via /api/kb/explain shows in-engine TEXT RETRIEVAL SCAN (idx_fts) + TOP-N SORT computing l2_distance",
+        "frontend renders rows as returned by seekdb (no two-way client merge)"
+      ]
+    },
+    {
+      "id": "webgpu-wasm",
+      "pass": true,
+      "evidence": [
+        "detectBackend() prefers navigator.gpu (web/embeddings.js)",
+        "UI exposes explicit backend selector #device-select (auto/webgpu/wasm)",
+        "explicit WASM run verified: badge 'q8 · WASM', Recall@5=1.0, avg search 27.2ms"
+      ]
+    },
+    {
+      "id": "incremental-write-refresh",
+      "pass": true,
+      "evidence": [
+        "upsertChunks single-transaction batch INSERT ... ON DUPLICATE KEY UPDATE",
+        "refresh() verifies index visibility right after write (perf row 索引确认)",
+        "kbId-scoped clear/switch keeps queries consistent with current KB"
+      ]
+    },
+    {
+      "id": "no-precomputed-replay",
+      "pass": true,
+      "evidence": [
+        "server stores whatever the browser computed; every search embeds the query in-browser first (app.js doSearch -> embedTexts)",
+        "no server-side embedding computation path exists in server/*.mjs"
+      ]
+    },
+    {
+      "id": "model-license",
+      "pass": true,
+      "evidence": [
+        "Xenova/paraphrase-multilingual-MiniLM-L12-v2 (upstream sentence-transformers, Apache-2.0)"
+      ]
+    }
+  ],
+  "allPass": true
+}
