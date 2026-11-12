@@ -166,6 +166,20 @@ export class KnowledgeBase {
     return { rows, sql, mode: "hybrid", alpha };
   }
 
+  // 输出混合检索 SQL 的 EXPLAIN 执行计划（证明向量索引与全文索引在同一语句内执行）
+  async explainHybrid(kbId, queryText) {
+    const emb = JSON.stringify(new Array(this.dim).fill(0));
+    const sql = `EXPLAIN SELECT id, doc_id, title, content,
+                        l2_distance(embedding, ?) AS dist,
+                        MATCH(content) AGAINST(?) AS score
+                 FROM ${this.table}
+                 WHERE kb_id = ? AND MATCH(content) AGAINST(?)
+                 ORDER BY l2_distance(embedding, ?) APPROXIMATE
+                 LIMIT 5`;
+    const [rows] = await this.pool.query(sql, [emb, queryText, kbId, queryText, emb]);
+    return { sql: sql.replace(/^EXPLAIN /, ""), plan: rows };
+  }
+
   async stats(kbId) {
     const [rows] = await this.pool.query(
       `SELECT COUNT(*) AS chunks, COUNT(DISTINCT doc_id) AS docs FROM ${this.table} WHERE kb_id = ?`,
