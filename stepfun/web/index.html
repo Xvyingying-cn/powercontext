@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>端侧知识库 · 浏览器本地向量化 + seekdb 混合检索</title>
+<script>
+// 前端自检：任何 JS 错误 / 模块加载失败都直接显示在页面顶部，避免"点了没反应"的静默失败
+(function () {
+  var shown = 0;
+  function banner(msg) {
+    if (shown++ > 4) return;
+    var d = document.createElement("div");
+    d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:#c0392b;color:#fff;padding:8px 14px;font:12px/1.6 Consolas,monospace;white-space:pre-wrap";
+    d.textContent = "[页面错误] " + msg;
+    (document.body || document.documentElement).appendChild(d);
+  }
+  window.addEventListener("error", function (e) {
+    banner((e.message || "资源加载失败") + (e.filename ? " @ " + String(e.filename).split("/").pop() + ":" + e.lineno : ""));
+  }, true);
+  window.addEventListener("unhandledrejection", function (e) {
+    banner("Promise 异常： " + (e.reason && (e.reason.message || e.reason)));
+  });
+})();
+</script>
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">◍</span>
+    <div>
+      <h1>端侧知识库</h1>
+      <p class="sub">浏览器本地向量化 · seekdb 向量 + 全文混合检索</p>
+    </div>
+  </div>
+  <div class="badges">
+    <span class="badge" id="badge-backend" title="推理后端">后端：检测中…</span>
+    <span class="badge" id="badge-db" title="seekdb 连接状态">seekdb：检测中…</span>
+    <span class="badge" id="badge-model" title="当前模型与精度">模型：未加载</span>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- 左栏：导入与索引 -->
+  <section class="panel">
+    <h2>1 · 导入语料</h2>
+    <div class="row">
+      <input type="file" id="file-input" accept=".txt,.md,text/plain,text/markdown" multiple hidden />
+      <button class="btn" id="btn-pick">选择 .txt / .md 文件</button>
+      <button class="btn ghost" id="btn-sample">载入示例语料</button>
+    </div>
+    <textarea id="paste-box" rows="5" placeholder="也可以直接粘贴文本，每段以空行分隔…"></textarea>
+    <div class="row">
+      <button class="btn ghost" id="btn-use-paste">把粘贴内容加入语料</button>
+      <span class="hint" id="corpus-info">语料：0 篇 / 0 块</span>
+    </div>
+
+    <h2>2 · 本地向量化并写入 seekdb</h2>
+    <div class="row">
+      <label class="field">
+        <span>模型</span>
+        <select id="model-select"></select>
+      </label>
+      <label class="field">
+        <span>精度 / 量化</span>
+        <select id="dtype-select">
+          <option value="q8">INT8（q8）· 默认</option>
+          <option value="fp16">FP16 · WebGPU 推荐</option>
+          <option value="fp32">FP32 · 基线对照</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>推理后端</span>
+        <select id="device-select">
+          <option value="auto">自动（WebGPU 优先，失败降级 WASM）</option>
+          <option value="webgpu">WebGPU（显式指定）</option>
+          <option value="wasm">WASM（显式指定）</option>
+        </select>
+      </label>
+      <label class="field narrow">
+        <span>批大小</span>
+        <input type="number" id="batch-size" value="8" min="1" max="32" />
+      </label>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="btn-index">向量化并写入 seekdb</button>
+      <button class="btn ghost" id="btn-clear">清空知识库</button>
+    </div>
+    <div class="progress"><div class="bar" id="index-bar"></div></div>
+    <p class="hint" id="index-hint">未开始</p>
+
+    <h2>3 · 性能实测</h2>
+    <table class="perf" id="perf-table">
+      <thead>
+        <tr><th>阶段</th><th>耗时</th><th>备注</th></tr>
+      </thead>
+      <tbody>
+        <tr data-k="modelLoad"><td>模型下载与加载</td><td>-</td><td class="note">首次含下载</td></tr>
+        <tr data-k="warmup"><td>预热推理</td><td>-</td><td class="note">首帧编译</td></tr>
+        <tr data-k="embedDocs"><td>文档向量化</td><td>-</td><td class="note">批处理</td></tr>
+        <tr data-k="write"><td>写入 seekdb</td><td>-</td><td class="note">事务批量</td></tr>
+        <tr data-k="refresh"><td>索引刷新确认</td><td>-</td><td class="note">增量可见性</td></tr>
+        <tr data-k="embedQuery"><td>查询向量化</td><td>-</td><td class="note">单条</td></tr>
+        <tr data-k="search"><td>seekdb 检索</td><td>-</td><td class="note">单条 SQL</td></tr>
+        <tr data-k="e2e"><td>端到端（提交→展示）</td><td>-</td><td class="note">查询全链路</td></tr>
+      </tbody>
+    </table>
+    <div class="row">
+      <button class="btn" id="btn-eval">运行检索质量评测（Recall@5 / nDCG@5）</button>
+      <button class="btn ghost" id="btn-export">导出实测 JSON</button>
+    </div>
+    <p class="hint" id="eval-hint">评测集内置于 data/queries.json，语料为示例文档时可直接运行。</p>
+  </section>
+
+  <!-- 右栏：检索 -->
+  <section class="panel">
+    <h2>4 · 检索</h2>
+    <div class="searchbar">
+      <input type="text" id="query-input" placeholder="输入问题，例如：混合检索是怎么工作的？" />
+      <button class="btn primary" id="btn-search">检索</button>
+    </div>
+    <div class="row">
+      <label class="field">
+        <span>检索模式</span>
+        <select id="mode-select">
+          <option value="hybrid">混合检索（seekdb 单条 SQL）</option>
+          <option value="vector">纯向量检索</option>
+          <option value="text">纯全文检索</option>
+        </select>
+      </label>
+      <label class="field narrow">
+        <span>Top-K</span>
+        <input type="number" id="topk" value="5" min="1" max="20" />
+      </label>
+    </div>
+    <p class="hint" id="search-hint">检索由 seekdb 完成，前端不做两路结果拼合。</p>
+    <div id="results" class="results"></div>
+    <details class="sql-box">
+      <summary>查看本次下发的 SQL</summary>
+      <pre id="sql-pre">-</pre>
+    </details>
+
+    <h2>5 · 模型与量化说明</h2>
+    <ul class="notes" id="model-notes">
+      <li>模型：ONNX 模型与推理运行时随项目分发（web/models、web/vendor），推理全部在本机浏览器完成，无云端接口调用，断网可用。</li>
+      <li>量化：q8 = INT8 动态量化（默认，随项目分发）；fp16 = 半精度；fp32 作为质量基线。</li>
+      <li>后端：优先 WebGPU，初始化失败自动降级 WASM，并在顶部徽标明示。</li>
+    </ul>
+  </section>
+</main>
+
+<script type="module" src="./app.js?v=3"></script>
+</body>
+</html>
