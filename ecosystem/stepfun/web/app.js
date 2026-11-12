@@ -86,7 +86,8 @@ function updateCorpusInfo() {
 async function ensureEmbedder() {
   const model = $("#model-select").value;
   const dtype = $("#dtype-select").value;
-  const cfg = `${model}|${dtype}|auto`;
+  const device = ($("#device-select") || {}).value || "auto";
+  const cfg = `${model}|${dtype}|${device}`;
   if (state.emb && state.loadedConfig === cfg) return state.emb;
 
   setBadge("#badge-model", `模型：加载中（${dtype}）…`, "warn");
@@ -94,7 +95,7 @@ async function ensureEmbedder() {
   const emb = await loadEmbedder({
     model,
     dtype,
-    device: "auto",
+    device,
     onProgress: (p) => {
       if (p.phase === "download" && p.total) {
         const pct = Math.round((p.loaded / p.total) * 100);
@@ -387,4 +388,9 @@ $("#dtype-select").addEventListener("change", () => {
   state.emb = null;
   state.loadedConfig = null;
   $("#badge-model").textContent = "模型：待加载（精度已切换）";
+});
+$("#device-select").addEventListener("change", () => {
+  state.emb = null;
+  state.loadedConfig = null;
+  $("#badge-model").textContent = "模型：待加载（后端已切换）";
 });
