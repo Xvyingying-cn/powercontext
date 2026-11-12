@@ -1,0 +1,150 @@
+{
+  "schemaVersion": "stepfun-performance/v1",
+  "generatedAt": "2026-11-12T04:20:00+08:00",
+  "device": "AMD Ryzen 9 8945HX · Radeon 610M (WebGPU) · 32GB · Windows 11 · Edge 157 · seekdb embedded in WSL2 (Node 22)",
+  "fixedConditions": "same device/browser, same bundled corpus (8 docs/8 chunks) and 8-query labelled eval set, batch=8; cold = first load in a fresh browser session, warm = same session after preheat",
+  "configurations": [
+    {
+      "label": "FP32 (baseline) + WebGPU",
+      "dtype": "fp32",
+      "device": "webgpu",
+      "modelBytes": 470286336.0,
+      "stageMs": {
+        "modelLoad": 16364.9,
+        "warmup": 470.9,
+        "embedDocs": 117.9,
+        "writeSeekdb": 61.6,
+        "indexRefresh": 7.1
+      },
+      "quality": {
+        "queries": 8,
+        "recall5": 1,
+        "ndcg5": 0.9539,
+        "avgSearchMs": 60.7,
+        "dtype": "fp32",
+        "backend": "webgpu"
+      },
+      "source": "exported via UI 导出实测 JSON",
+      "note": "quantization-before baseline"
+    },
+    {
+      "label": "FP16 + WebGPU",
+      "dtype": "fp16",
+      "device": "webgpu",
+      "modelBytes": 235300454.4,
+      "stageMs": {
+        "modelLoad": 5880.9,
+        "warmup": 1016.6,
+        "embedDocs": 559.3,
+        "writeSeekdb": 175.3,
+        "indexRefresh": 2.5
+      },
+      "quality": {
+        "queries": 8,
+        "recall5": 1,
+        "ndcg5": 0.9539,
+        "avgSearchMs": 2.5,
+        "dtype": "fp16",
+        "backend": "webgpu"
+      },
+      "source": "exported via UI 导出实测 JSON",
+      "note": ""
+    },
+    {
+      "label": "INT8 (q8) + WebGPU · cold",
+      "dtype": "q8",
+      "device": "webgpu",
+      "modelBytes": 118279372.8,
+      "stageMs": {
+        "modelLoad": 3303.3,
+        "warmup": 1202.4,
+        "embedDocs": 1771.3,
+        "writeSeekdb": 319.7,
+        "indexRefresh": 14.8
+      },
+      "quality": {
+        "queries": 8,
+        "recall5": 0.6875,
+        "ndcg5": 0.5077,
+        "avgSearchMs": 18,
+        "dtype": "q8",
+        "backend": "webgpu"
+      },
+      "source": "exported via UI 导出实测 JSON",
+      "note": "cold: includes first 112.8MB model load"
+    },
+    {
+      "label": "INT8 (q8) + WebGPU · repeat",
+      "dtype": "q8",
+      "device": "webgpu",
+      "modelBytes": 118279372.8,
+      "stageMs": {
+        "modelLoad": 1811.8,
+        "warmup": 210.8,
+        "embedDocs": 559.3,
+        "writeSeekdb": 175.3,
+        "indexRefresh": 2.5
+      },
+      "quality": {
+        "queries": 8,
+        "recall5": 0.625,
+        "ndcg5": 0.3827,
+        "avgSearchMs": 52.2,
+        "dtype": "q8",
+        "backend": "webgpu"
+      },
+      "source": "exported via UI 导出实测 JSON",
+      "note": "warm repeat"
+    },
+    {
+      "label": "INT8 (q8) + WASM (explicit fallback)",
+      "dtype": "q8",
+      "device": "wasm",
+      "modelBytes": 118279372.8,
+      "stageMs": {
+        "modelLoad": 1188.0,
+        "warmup": 13.0,
+        "embedDocs": 279.8,
+        "writeSeekdb": 731.1,
+        "indexRefresh": 2.4
+      },
+      "quality": {
+        "queries": 8,
+        "recall5": 1,
+        "ndcg5": 0.9539,
+        "avgSearchMs": 27.2,
+        "dtype": "q8",
+        "backend": "wasm"
+      },
+      "source": "exported via UI 导出实测 JSON",
+      "note": "transcribed from UI screenshot; badge q8·WASM"
+    }
+  ],
+  "endToEndQuery": {
+    "q8_webgpu_cold": {
+      "queryEmbedMs": 224.0,
+      "seekdbSearchMs": 107.1,
+      "e2eMs": 343.5
+    },
+    "warm_avg_per_config": {
+      "FP32 (baseline) + WebGPU": 60.7,
+      "FP16 + WebGPU": 2.5,
+      "INT8 (q8) + WebGPU · cold": 18.0,
+      "INT8 (q8) + WebGPU · repeat": 52.2,
+      "INT8 (q8) + WASM (explicit fallback)": 27.2
+    }
+  },
+  "compression": {
+    "fp32Bytes": 470268510,
+    "fp16Bytes": 235336673,
+    "int8Bytes": 118308126,
+    "fp32_to_int8": 3.97,
+    "fp32_to_fp16": 2.0
+  },
+  "rawExports": [
+    "records/benchmark-q8-webgpu.json",
+    "Downloads/benchmark-fp16-webgpu.json",
+    "Downloads/benchmark-fp32-webgpu.json",
+    "Downloads/benchmark-q8-webgpu (1).json"
+  ]
+}
