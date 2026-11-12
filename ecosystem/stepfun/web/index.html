@@ -70,6 +70,14 @@
           <option value="fp32">FP32 · 基线对照</option>
         </select>
       </label>
+      <label class="field">
+        <span>推理后端</span>
+        <select id="device-select">
+          <option value="auto">自动（WebGPU 优先，失败降级 WASM）</option>
+          <option value="webgpu">WebGPU（显式指定）</option>
+          <option value="wasm">WASM（显式指定）</option>
+        </select>
+      </label>
       <label class="field narrow">
         <span>批大小</span>
         <input type="number" id="batch-size" value="8" min="1" max="32" />
