@@ -1,0 +1,5 @@
+node_modules/
+data/seekdb-data/
+web/models/
+*.log
+.DS_Store
